@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Minecraft服务器在线人数实时监控系统">
+    <meta name="keywords" content="Minecraft,服务器监控,在线人数,游戏服务器">
+    <title>MC服务器在线人数监控 | mc.xifyun.online</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', Arial, sans-serif;
+        }
+
+        :root {
+            --primary-color: #6c5ce7;
+            --secondary-color: #a29bfe;
+            --accent-color: #fd79a8;
+            --success-color: #00b894;
+            --warning-color: #fdcb6e;
+            --danger-color: #d63031;
+            --info-color: #00cec9;
+            --dark-bg: #1a1a2e;
+            --dark-card: #16213e;
+            --text-light: #dfe6e9;
+            --text-muted: #a29bfe;
+        }
+
+        body {
+            padding: 20px;
+            background: linear-gradient(135deg, var(--dark-bg) 0%, var(--dark-card) 100%);
+            color: var(--text-light);
+            min-height: 100vh;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        body.light-mode {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* 顶部工具栏 */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px 20px;
+            background: rgba(30, 30, 46, 0.8);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .theme-toggle {
+            background: var(--primary-color);
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.3s;
+        }
+
+        .theme-toggle:hover {
+            background: #5a4fcf;
+        }
+
+        .quick-stats {
+            display: flex;
+            gap: 20px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .notification-badge {
+            background: var(--danger-color);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            position: absolute;
+            top: -5px;
+            right: -5px;
+        }
+
+        /* 主标题区域 */
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(30, 30, 46, 0.8);
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        /* 仪表板布局 */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 服务器信息卡片 */
+        .server-info {
+            background: rgba(30, 30, 46, 0.8);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            border-left: 5px solid var(--primary-color);
+        }
+
+        .info-title {
+            font-weight: bold;
+            color: var(--primary-color);
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .info-title i {
+            font-size: 1.5rem;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .info-item {
+            background: rgba(45, 45, 65, 0.6);
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            transition: transform 0.2s, background 0.3s;
+        }
+
+        .info-item:hover {
+            transform: translateY(-3px);
+            background: rgba(55, 55, 80, 0.8);
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: var(--text-muted);
+        }
+
+        .info-value {
+            color: var(--text-light);
+            font-weight: 600;
+        }
+
+        .status-online {
+            color: var(--success-color);
+            font-weight: bold;
+        }
+
+        .status-offline {
+            color: var(--danger-color);
+            font-weight: bold;
+        }
+
+        /* MOTD显示 */
+        .motd-container {
+            grid-column: 1 / -1;
+            background: rgba(30, 30, 46, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .motd-title {
+            font-weight: bold;
+            color: var(--warning-color);
+            margin-bottom: 10px;
+        }
+
+        .motd-content {
+            font-family: 'Minecraft', monospace;
+            color: #aaffaa;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 3px solid var(--warning-color);
+        }
+
+        /* 延迟显示 */
+        .ping-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .ping-excellent { background: rgba(0, 184, 148, 0.2); color: var(--success-color); }
+        .ping-good { background: rgba(0, 206, 201, 0.2); color: var(--info-color); }
+        .ping-fair { background: rgba(253, 203, 110, 0.2); color: var(--warning-color); }
+        .ping-poor { background: rgba(253, 121, 168, 0.2); color: var(--accent-color); }
+        .ping-bad { background: rgba(214, 48, 49, 0.2); color: var(--danger-color); }
+
+        /* 玩家信息卡片 */
+        .players-container {
+            background: rgba(30, 30, 46, 0.8);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            border-left: 5px solid var(--accent-color);
+            position: relative;
+        }
+
+        .players-title {
+            font-weight: bold;
+            color: var(--accent-color);
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .players-title i {
+            font-size: 1.5rem;
+        }
+
+        .players-count {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .players-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .players-grid::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .players-grid::-webkit-scrollbar-track {
+            background: rgba(45, 45, 65, 0.6);
+            border-radius: 4px;
+        }
+
+        .players-grid::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 4px;
+        }
+
+        .player-card {
+            background: rgba(45, 45, 65, 0.6);
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            transition: transform 0.2s, background 0.3s;
+            position: relative;
+        }
+
+        .player-card:hover {
+            transform: translateY(-5px);
+            background: rgba(55, 55, 80, 0.8);
+        }
+
+        .player-avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--primary-color);
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+        }
+
+        .player-name {
+            font-weight: bold;
+            color: var(--text-light);
+            text-align: center;
+            word-break: break-word;
+            max-width: 100%;
+        }
+
+        .player-op {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: var(--warning-color);
+            font-size: 12px;
+        }
+
+        .no-players {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+            font-style: italic;
+            grid-column: 1 / -1;
+        }
+
+        /* 图表区域 */
+        .chart-container {
+            background: rgba(30, 30, 46, 0.8);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            border-left: 5px solid var(--info-color);
+        }
+
+        .chart-title {
+            font-weight: bold;
+            color: var(--info-color);
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chart-title i {
+            font-size: 1.5rem;
+        }
+
+        .chart-box {
+            width: 100%;
+            height: 400px;
+            position: relative;
+        }
+
+        /* 控制面板 */
+        .control-panel {
+            background: rgba(30, 30, 46, 0.8);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            border-left: 5px solid var(--warning-color);
+            margin-bottom: 30px;
+        }
+
+        .control-title {
+            font-weight: bold;
+            color: var(--warning-color);
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-title i {
+            font-size: 1.3rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background: var(--primary-color);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background: #5a4fcf;
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-refresh {
+            background: var(--success-color);
+        }
+
+        .btn-refresh:hover {
+            background: #00a085;
+        }
+
+        .btn-pause {
+            background: var(--accent-color);
+        }
+
+        .btn-pause:hover {
+            background: #e66797;
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .interval-selector {
+            padding: 8px 15px;
+            border-radius: 6px;
+            background: rgba(45, 45, 65, 0.8);
+            color: var(--text-light);
+            border: 1px solid var(--primary-color);
+        }
+
+        /* 服务器查询历史 */
+        .history-container {
+            background: rgba(30, 30, 46, 0.8);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            border-left: 5px solid var(--secondary-color);
+        }
+
+        .history-title {
+            font-weight: bold;
+            color: var(--secondary-color);
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .history-title i {
+            font-size: 1.5rem;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .history-table th {
+            background: rgba(45, 45, 65, 0.8);
+            padding: 12px;
+            text-align: left;
+            color: var(--text-muted);
+        }
+
+        .history-table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .history-table tr:hover {
+            background: rgba(55, 55, 80, 0.3);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .info-grid,
+            .players-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                justify-content: center;
+            }
+            
+            .chart-box {
+                height: 300px;
+            }
+            
+            .dashboard {
+                gap: 20px;
+            }
+            
+            .top-bar {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .quick-stats {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+
+        /* 页脚 */
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 加载动画 */
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 通知样式 */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(30, 30, 46, 0.95);
+            border-left: 5px solid var(--primary-color);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            max-width: 300px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .notification.success { border-left-color: var(--success-color); }
+        .notification.warning { border-left-color: var(--warning-color); }
+        .notification.error { border-left-color: var(--danger-color); }
+        .notification.info { border-left-color: var(--info-color); }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* 工具提示 */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+        }
+
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 200px;
+            background-color: rgba(30, 30, 46, 0.95);
+            color: var(--text-light);
+            text-align: center;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1001;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: rgba(30, 30, 46, 0.95);
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+
+        .close-modal {
+            float: right;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        /* 导出选项 */
+        .export-options {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        /* 服务器输入框 */
+        .server-input {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .server-input input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 6px;
+            background: rgba(45, 45, 65, 0.8);
+            border: 1px solid var(--primary-color);
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 顶部工具栏 -->
+        <div class="top-bar">
+            <button class="theme-toggle" id="themeToggle">
+                <i class="fas fa-moon"></i> 暗黑模式
+            </button>
+            
+            <div class="quick-stats">
+                <div class="stat-item">
+                    <i class="fas fa-clock"></i>
+                    <span>运行时间: <span class="stat-value" id="uptime">--</span></span>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-signal"></i>
+                    <span>平均延迟: <span class="stat-value" id="avgPing">--</span>ms</span>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-history"></i>
+                    <span>查询次数: <span class="stat-value" id="queryCount">0</span></span>
+                </div>
+                <div class="stat-item tooltip">
+                    <i class="fas fa-bell"></i>
+                    <span>通知</span>
+                    <span class="tooltip-text">当服务器状态变化或达到设定阈值时发送通知</span>
+                    <div class="notification-badge" id="notificationBadge" style="display: none;">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主标题区域 -->
+        <header>
+            <h1>Minecraft服务器在线人数监控</h1>
+            <p class="subtitle">实时监控服务器状态、在线玩家数量与玩家信息</p>
+        </header>
+
+        <main>
+            <!-- 仪表板布局 -->
+            <div class="dashboard">
+                <!-- 服务器信息 -->
+                <section class="server-info">
+                    <h2 class="info-title">
+                        <i class="fas fa-server"></i> 服务器基础信息
+                    </h2>
+                    
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">服务器地址：</span>
+                            <span class="info-value" id="serverAddr">mc.xifyun.online</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">服务器状态：</span>
+                            <span class="info-value" id="serverStatus">查询中<span class="loader"></span></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">当前在线人数：</span>
+                            <span class="info-value">
+                                <span id="onlineCount">--</span> / <span id="maxCount">--</span>
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">服务器延迟：</span>
+                            <span class="info-value" id="serverPing">--<span class="loader"></span></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">服务器版本：</span>
+                            <span class="info-value" id="serverVersion">查询中<span class="loader"></span></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">协议号：</span>
+                            <span class="info-value" id="protocolNum">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">运行平台：</span>
+                            <span class="info-value" id="serverPlatform">--</span>
+                        </div>
+                    </div>
+                    
+                    <!-- MOTD显示区域 -->
+                    <div class="motd-container">
+                        <div class="motd-title">服务器描述 (MOTD):</div>
+                        <div class="motd-content" id="motdContent">正在加载服务器描述...</div>
+                    </div>
+                    
+                    <!-- 自定义服务器查询 -->
+                    <div class="server-input">
+                        <input type="text" id="customServer" placeholder="输入其他服务器地址 (如: mc.hypixel.net)" />
+                        <button class="btn btn-refresh" id="queryCustomServer">
+                            <i class="fas fa-search"></i> 查询
+                        </button>
+                    </div>
+                </section>
+
+                <!-- 在线玩家列表 -->
+                <section class="players-container">
+                    <h2 class="players-title">
+                        <i class="fas fa-users"></i> 在线玩家列表
+                    </h2>
+                    <div class="players-count">当前在线：<span id="playersCount">0</span> 名玩家</div>
+                    <div class="players-grid" id="playersGrid">
+                        <div class="no-players">正在获取玩家信息...</div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 图表区域 -->
+            <section class="chart-container">
+                <h2 class="chart-title">
+                    <i class="fas fa-chart-line"></i> 在线人数变化趋势
+                </h2>
+                <div class="chart-box">
+                    <canvas id="onlineChart"></canvas>
+                </div>
+            </section>
+
+            <!-- 控制面板 -->
+            <section class="control-panel">
+                <h3 class="control-title">
+                    <i class="fas fa-sliders-h"></i> 监控控制
+                </h3>
+                <div class="controls">
+                    <select id="intervalSelector" class="interval-selector">
+                        <option value="10">10秒刷新</option>
+                        <option value="30" selected>30秒刷新</option>
+                        <option value="60">60秒刷新</option>
+                        <option value="300">5分钟刷新</option>
+                    </select>
+                    <button id="refreshBtn" class="btn btn-refresh">
+                        <i class="fas fa-sync-alt"></i> 立即刷新
+                    </button>
+                    <button id="pauseBtn" class="btn btn-pause">
+                        <i class="fas fa-pause"></i> 暂停监控
+                    </button>
+                    <button id="clearChartBtn" class="btn">
+                        <i class="fas fa-trash"></i> 清除图表
+                    </button>
+                    <button id="exportBtn" class="btn">
+                        <i class="fas fa-download"></i> 导出数据
+                    </button>
+                    <button id="historyBtn" class="btn">
+                        <i class="fas fa-history"></i> 查看历史
+                    </button>
+                    <button id="settingsBtn" class="btn">
+                        <i class="fas fa-cog"></i> 设置
+                    </button>
+                </div>
+            </section>
+
+            <!-- 服务器查询历史 -->
+            <section class="history-container" id="historyContainer" style="display: none;">
+                <h2 class="history-title">
+                    <i class="fas fa-database"></i> 服务器查询历史
+                </h2>
+                <div style="margin-bottom: 15px;">
+                    <button class="btn" id="clearHistoryBtn">
+                        <i class="fas fa-trash"></i> 清除历史记录
+                    </button>
+                    <button class="btn" id="exportHistoryBtn">
+                        <i class="fas fa-file-export"></i> 导出CSV
+                    </button>
+                </div>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>时间</th>
+                                <th>在线人数</th>
+                                <th>延迟</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <!-- 历史记录将通过JS动态添加 -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <!-- 页脚 -->
+        <footer>
+            <p>© 2023 Minecraft服务器监控系统 | 数据来源: mc.xifyun.online | 接口: minetools.eu</p>
+            <p>本监控页面每30秒自动刷新一次，数据仅供参考</p>
+        </footer>
+    </div>
+
+    <!-- 设置模态框 -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <span class="close-modal" id="closeSettings">&times;</span>
+            <h3 class="modal-title"><i class="fas fa-cog"></i> 监控设置</h3>
+            
+            <div style="margin-bottom: 20px;">
+                <h4><i class="fas fa-bell"></i> 通知设置</h4>
+                <div style="margin-top: 10px;">
+                    <label style="display: block; margin-bottom: 8px;">
+                        <input type="checkbox" id="notifyStatusChange"> 服务器状态变化时通知
+                    </label>
+                    <label style="display: block; margin-bottom: 8px;">
+                        <input type="checkbox" id="notifyPlayerThreshold"> 在线人数达到阈值时通知
+                    </label>
+                    <div style="margin-top: 10px;">
+                        <label>阈值:</label>
+                        <input type="number" id="playerThreshold" min="1" max="1000" value="20" style="width: 80px; margin-left: 10px;">
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h4><i class="fas fa-chart-line"></i> 图表设置</h4>
+                <div style="margin-top: 10px;">
+                    <label style="display: block; margin-bottom: 8px;">
+                        <input type="number" id="chartDataPoints" min="5" max="100" value="20"> 显示数据点数量
+                    </label>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h4><i class="fas fa-database"></i> 数据设置</h4>
+                <div style="margin-top: 10px;">
+                    <label style="display: block; margin-bottom: 8px;">
+                        <input type="checkbox" id="autoClearHistory"> 自动清除7天前的历史记录
+                    </label>
+                </div>
+            </div>
+            
+            <button class="btn" id="saveSettings" style="width: 100%;">
+                <i class="fas fa-save"></i> 保存设置
+            </button>
+        </div>
+    </div>
+
+    <!-- 导出数据模态框 -->
+    <div class="modal" id="exportModal">
+        <div class="modal-content">
+            <span class="close-modal" id="closeExport">&times;</span>
+            <h3 class="modal-title"><i class="fas fa-download"></i> 导出数据</h3>
+            
+            <p style="margin-bottom: 20px;">选择要导出的数据和格式：</p>
+            
+            <div class="export-options">
+                <button class="btn" id="exportChartPNG">
+                    <i class="fas fa-image"></i> 图表图片 (PNG)
+                </button>
+                <button class="btn" id="exportChartJPG">
+                    <i class="fas fa-image"></i> 图表图片 (JPG)
+                </button>
+                <button class="btn" id="exportDataJSON">
+                    <i class="fas fa-file-code"></i> JSON 数据
+                </button>
+                <button class="btn" id="exportDataCSV">
+                    <i class="fas fa-file-csv"></i> CSV 数据
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知区域 -->
+    <div id="notificationArea"></div>
+
+    <script>
+        // 全局变量
+        const serverAddr = "mc.xifyun.online";
+        let historyData = [];
+        let myChart = null;
+        let refreshInterval = null;
+        let isMonitoring = true;
+        let currentRefreshInterval = 30000; // 默认30秒
+        let queryCount = 0;
+        let serverHistory = [];
+        let pingHistory = [];
+        let startTime = new Date();
+        let notifications = [];
+        let isDarkMode = true;
+
+        // 默认设置
+        let settings = {
+            notifyStatusChange: true,
+            notifyPlayerThreshold: true,
+            playerThreshold: 20,
+            chartDataPoints: 20,
+            autoClearHistory: true,
+            theme: 'dark'
+        };
+
+        // DOM元素
+        const serverStatusEl = document.getElementById('serverStatus');
+        const onlineCountEl = document.getElementById('onlineCount');
+        const maxCountEl = document.getElementById('maxCount');
+        const serverVersionEl = document.getElementById('serverVersion');
+        const protocolNumEl = document.getElementById('protocolNum');
+        const serverPlatformEl = document.getElementById('serverPlatform');
+        const serverPingEl = document.getElementById('serverPing');
+        const playersCountEl = document.getElementById('playersCount');
+        const playersGridEl = document.getElementById('playersGrid');
+        const motdContentEl = document.getElementById('motdContent');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const clearChartBtn = document.getElementById('clearChartBtn');
+        const intervalSelector = document.getElementById('intervalSelector');
+        const themeToggle = document.getElementById('themeToggle');
+        const uptimeEl = document.getElementById('uptime');
+        const avgPingEl = document.getElementById('avgPing');
+        const queryCountEl = document.getElementById('queryCount');
+        const notificationBadge = document.getElementById('notificationBadge');
+        const historyContainer = document.getElementById('historyContainer');
+        const historyBtn = document.getElementById('historyBtn');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        const exportHistoryBtn = document.getElementById('exportHistoryBtn');
+        const historyTableBody = document.getElementById('historyTableBody');
+        const exportBtn = document.getElementById('exportBtn');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const customServerInput = document.getElementById('customServer');
+        const queryCustomServerBtn = document.getElementById('queryCustomServer');
+        const notificationArea = document.getElementById('notificationArea');
+
+        // 模态框元素
+        const settingsModal = document.getElementById('settingsModal');
+        const exportModal = document.getElementById('exportModal');
+        const closeSettings = document.getElementById('closeSettings');
+        const closeExport = document.getElementById('closeExport');
+        const saveSettingsBtn = document.getElementById('saveSettings');
+
+        // 从本地存储加载设置
+        function loadSettings() {
+            const savedSettings = localStorage.getItem('mcMonitorSettings');
+            if (savedSettings) {
+                settings = JSON.parse(savedSettings);
+                applySettings();
+            }
+        }
+
+        // 保存设置到本地存储
+        function saveSettings() {
+            localStorage.setItem('mcMonitorSettings', JSON.stringify(settings));
+            showNotification('设置已保存！', 'success');
+        }
+
+        // 应用设置
+        function applySettings() {
+            // 应用主题
+            if (settings.theme === 'light') {
+                document.body.classList.add('light-mode');
+                themeToggle.innerHTML = '<i class="fas fa-sun"></i> 明亮模式';
+                isDarkMode = false;
+            } else {
+                document.body.classList.remove('light-mode');
+                themeToggle.innerHTML = '<i class="fas fa-moon"></i> 暗黑模式';
+                isDarkMode = true;
+            }
+            
+            // 更新设置表单
+            document.getElementById('notifyStatusChange').checked = settings.notifyStatusChange;
+            document.getElementById('notifyPlayerThreshold').checked = settings.notifyPlayerThreshold;
+            document.getElementById('playerThreshold').value = settings.playerThreshold;
+            document.getElementById('chartDataPoints').value = settings.chartDataPoints;
+            document.getElementById('autoClearHistory').checked = settings.autoClearHistory;
+        }
+
+        // 显示通知
+        function showNotification(message, type = 'info', duration = 5000) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+                <span>${message}</span>
+            `;
+            
+            notificationArea.appendChild(notification);
+            
+            // 更新通知徽章
+            notifications.push({message, type, time: new Date()});
+            updateNotificationBadge();
+            
+            // 自动移除通知
+            setTimeout(() => {
+                notification.remove();
+                notifications.shift();
+                updateNotificationBadge();
+            }, duration);
+        }
+
+        // 更新通知徽章
+        function updateNotificationBadge() {
+            if (notifications.length > 0) {
+                notificationBadge.textContent = notifications.length;
+                notificationBadge.style.display = 'flex';
+            } else {
+                notificationBadge.style.display = 'none';
+            }
+        }
+
+        // 更新运行时间
+        function updateUptime() {
+            const now = new Date();
+            const diff = now - startTime;
+            
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            uptimeEl.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // 更新平均延迟
+        function updateAveragePing() {
+            if (pingHistory.length === 0) {
+                avgPingEl.textContent = '--';
+                return;
+            }
+            
+            const sum = pingHistory.reduce((a, b) => a + b, 0);
+            const avg = Math.round(sum / pingHistory.length);
+            avgPingEl.textContent = avg;
+        }
+
+        // 获取延迟等级
+        function getPingLevel(ping) {
+            if (ping < 50) return {text: '优秀', class: 'ping-excellent'};
+            if (ping < 100) return {text: '良好', class: 'ping-good'};
+            if (ping < 200) return {text: '一般', class: 'ping-fair'};
+            if (ping < 500) return {text: '较差', class: 'ping-poor'};
+            return {text: '极差', class: 'ping-bad'};
+        }
+
+        // 初始化图表
+        function initChart() {
+            const ctx = document.getElementById('onlineChart').getContext('2d');
+            
+            if (myChart) {
+                myChart.destroy();
+            }
+            
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '在线人数',
+                        data: [],
+                        borderColor: 'var(--info-color)',
+                        backgroundColor: 'rgba(0, 206, 201, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: 'var(--accent-color)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: 'var(--text-muted)',
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 30, 46, 0.9)',
+                            titleColor: 'var(--info-color)',
+                            bodyColor: 'var(--text-light)',
+                            borderColor: 'var(--info-color)',
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '时间',
+                                color: 'var(--text-muted)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                color: 'var(--text-muted)',
+                                maxTicksLimit: 10
+                            },
+                            grid: {
+                                color: 'rgba(162, 155, 254, 0.1)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '在线人数',
+                                color: 'var(--text-muted)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            beginAtZero: true,
+                            ticks: {
+                                color: 'var(--text-muted)',
+                                stepSize: 1,
+                                precision: 0
+                            },
+                            grid: {
+                                color: 'rgba(162, 155, 254, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 查询服务器数据
+        async function queryServerData(serverAddress = serverAddr) {
+            try {
+                // 显示加载状态
+                serverStatusEl.innerHTML = '查询中<span class="loader"></span>';
+                serverPingEl.innerHTML = '--<span class="loader"></span>';
+                
+                const startPing = Date.now();
+                const apiUrl = `https://api.minetools.eu/ping/${serverAddress}/25565`;
+                const response = await axios.get(apiUrl, { timeout: 10000 });
+                const ping = Date.now() - startPing;
+                
+                const data = response.data;
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // 解析服务器信息
+                const status = data.description ? '运行中' : '已离线';
+                const online = data.players ? data.players.online : 0;
+                const max = data.players ? data.players.max : 0;
+                const version = data.version ? data.version.name : '未知版本';
+                const protocol = data.version ? data.version.protocol : '--';
+                const platform = 'Java版';
+                
+                // 解析MOTD
+                let motd = '无服务器描述';
+                if (data.description) {
+                    if (typeof data.description === 'object') {
+                        motd = data.description.text || JSON.stringify(data.description);
+                    } else {
+                        motd = data.description.toString();
+                    }
+                    // 清理MOTD文本
+                    motd = motd.replace(/§[0-9a-fk-or]/g, '');
+                }
+
+                // 更新页面显示
+                serverStatusEl.innerHTML = `<span class="status-online">${status}</span>`;
+                onlineCountEl.textContent = online;
+                maxCountEl.textContent = max;
+                serverVersionEl.textContent = version;
+                protocolNumEl.textContent = protocol;
+                serverPlatformEl.textContent = platform;
+                motdContentEl.textContent = motd;
+                
+                // 更新延迟显示
+                const pingLevel = getPingLevel(ping);
+                serverPingEl.innerHTML = `<span class="ping-indicator ${pingLevel.class}">${ping}ms (${pingLevel.text})</span>`;
+                
+                // 记录延迟历史
+                pingHistory.push(ping);
+                if (pingHistory.length > 100) pingHistory.shift();
+                updateAveragePing();
+                
+                // 更新玩家列表
+                updatePlayersList(data);
+
+                // 检查通知条件
+                checkNotifications(online, status);
+
+                // 记录历史数据
+                const now = new Date();
+                const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+                
+                historyData.push({
+                    time: timeString,
+                    count: online,
+                    fullTime: now,
+                    ping: ping
+                });
+                
+                // 保持设定的数据点数量
+                if (historyData.length > settings.chartDataPoints) {
+                    historyData.shift();
+                }
+                
+                // 添加查询历史记录
+                serverHistory.unshift({
+                    timestamp: now,
+                    time: timeString,
+                    online: online,
+                    max: max,
+                    ping: ping,
+                    status: status,
+                    version: version
+                });
+                
+                // 限制历史记录数量
+                if (serverHistory.length > 50) {
+                    serverHistory.pop();
+                }
+                
+                // 更新图表
+                updateChart();
+                
+                // 更新查询次数
+                queryCount++;
+                queryCountEl.textContent = queryCount;
+                
+                // 保存历史记录
+                saveHistory();
+
+            } catch (error) {
+                console.error('查询服务器数据失败:', error);
+                
+                // 更新为错误状态
+                serverStatusEl.innerHTML = '<span class="status-offline">查询失败</span>';
+                onlineCountEl.textContent = '-';
+                maxCountEl.textContent = '-';
+                serverVersionEl.textContent = '获取失败';
+                protocolNumEl.textContent = '-';
+                serverPlatformEl.textContent = '-';
+                serverPingEl.textContent = '-';
+                motdContentEl.textContent = '无法获取服务器描述';
+
+                // 清空玩家列表
+                playersCountEl.textContent = '0';
+                playersGridEl.innerHTML = '<div class="no-players">无法获取玩家信息，服务器可能离线</div>';
+
+                // 记录错误数据点
+                const now = new Date();
+                const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+                
+                historyData.push({
+                    time: timeString,
+                    count: 0,
+                    fullTime: now,
+                    error: true
+                });
+                
+                if (historyData.length > settings.chartDataPoints) {
+                    historyData.shift();
+                }
+                
+                updateChart();
+            }
+        }
+
+        // 检查通知条件
+        function checkNotifications(online, status) {
+            // 检查玩家数量阈值
+            if (settings.notifyPlayerThreshold && online >= settings.playerThreshold) {
+                showNotification(`服务器在线人数已达到 ${online} 人！`, 'warning');
+            }
+            
+            // 这里可以添加更多通知条件
+        }
+
+        // 更新玩家列表
+        function updatePlayersList(data) {
+            const playersGrid = document.getElementById('playersGrid');
+            playersGrid.innerHTML = '';
+            
+            if (!data.players || !data.players.sample || data.players.sample.length === 0) {
+                playersCountEl.textContent = '0';
+                playersGrid.innerHTML = '<div class="no-players">当前没有玩家在线</div>';
+                return;
+            }
+            
+            playersCountEl.textContent = data.players.online;
+            
+            data.players.sample.forEach(player => {
+                const playerCard = document.createElement('div');
+                playerCard.className = 'player-card';
+                
+                const playerName = player.name || '未知玩家';
+                const avatarUrl = `https://crafatar.com/avatars/${player.id || '8667ba71-b85a-4004-af54-457a9734eed7'}?size=64&overlay`;
+                
+                playerCard.innerHTML = `
+                    <img src="${avatarUrl}" alt="${playerName}" class="player-avatar" 
+                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIzMiIgZmlsbD0idXJsKCNwYWludDBfbGluZWFyXzQ3Nl8xMjM0KSIvPjxwYXRoIGQ9Ik00MiAyOEwyMiA0OEgxNkw0MiAyMlYyOFoiIGZpbGw9IiM2QzVDRTciLz48cGF0aCBkPSJNMjIgMzZMMzggMjBINDJMMjYgMzZIMjJaIiBmaWxsPSIjRkQ3OUE4Ii8+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJwYWludDBfbGluZWFyXzQ3Nl8xMjM0IiB4MT0iMzIiIHkxPSIwIiB4Mj0iMzIiIHkyPSI2NCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPjxzdG9wIHN0b3AtY29sb3I9IiM2QzVDRTciLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNBMjlCRkUiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48L3N2Zz4='">
+                    <div class="player-name">${playerName}</div>
+                `;
+                
+                playersGrid.appendChild(playerCard);
+            });
+        }
+
+        // 更新图表数据
+        function updateChart() {
+            if (!myChart || historyData.length === 0) return;
+            
+            const labels = historyData.map(item => item.time);
+            const data = historyData.map(item => item.count);
+            
+            myChart.data.labels = labels;
+            myChart.data.datasets[0].data = data;
+            myChart.update();
+        }
+
+        // 清除图表数据
+        function clearChartData() {
+            historyData = [];
+            initChart();
+            showNotification('图表数据已清除', 'info');
+        }
+
+        // 保存历史记录到本地存储
+        function saveHistory() {
+            localStorage.setItem('mcServerHistory', JSON.stringify(serverHistory));
+        }
+
+        // 加载历史记录从本地存储
+        function loadHistory() {
+            const savedHistory = localStorage.getItem('mcServerHistory');
+            if (savedHistory) {
+                serverHistory = JSON.parse(savedHistory);
+                updateHistoryTable();
+            }
+        }
+
+        // 更新历史记录表格
+        function updateHistoryTable() {
+            historyTableBody.innerHTML = '';
+            
+            serverHistory.forEach(record => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${record.time}</td>
+                    <td>${record.online}/${record.max}</td>
+                    <td>${record.ping}ms</td>
+                    <td><span class="${record.status === '运行中' ? 'status-online' : 'status-offline'}">${record.status}</span></td>
+                `;
+                historyTableBody.appendChild(row);
+            });
+        }
+
+        // 清除历史记录
+        function clearHistory() {
+            if (confirm('确定要清除所有历史记录吗？')) {
+                serverHistory = [];
+                saveHistory();
+                updateHistoryTable();
+                showNotification('历史记录已清除', 'info');
+            }
+        }
+
+        // 导出历史记录为CSV
+        function exportHistoryToCSV() {
+            if (serverHistory.length === 0) {
+                showNotification('没有历史记录可导出', 'warning');
+                return;
+            }
+            
+            const headers = ['时间', '在线人数', '最大人数', '延迟(ms)', '状态', '版本'];
+            const rows = serverHistory.map(record => [
+                record.time,
+                record.online,
+                record.max,
+                record.ping,
+                record.status,
+                record.version
+            ]);
+            
+            const csvContent = [
+                headers.join(','),
+                ...rows.map(row => row.join(','))
+            ].join('\n');
+            
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `mc-server-history-${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
+            
+            showNotification('历史记录已导出为CSV文件', 'success');
+        }
+
+        // 导出图表为图片
+        function exportChart(format) {
+            if (!myChart) {
+                showNotification('没有图表数据可导出', 'warning');
+                return;
+            }
+            
+            const link = document.createElement('a');
+            link.download = `mc-server-chart-${new Date().toISOString().slice(0, 10)}.${format}`;
+            link.href = myChart.toBase64Image(`image/${format}`, 1);
+            link.click();
+            
+            showNotification(`图表已导出为${format.toUpperCase()}图片`, 'success');
+        }
+
+        // 导出数据为JSON
+        function exportDataToJSON() {
+            const data = {
+                server: serverAddr,
+                history: serverHistory,
+                currentStats: {
+                    online: document.getElementById('onlineCount').textContent,
+                    max: document.getElementById('maxCount').textContent,
+                    status: document.getElementById('serverStatus').textContent,
+                    version: document.getElementById('serverVersion').textContent,
+                    ping: document.getElementById('serverPing').textContent
+                },
+                chartData: historyData,
+                exportTime: new Date().toISOString()
+            };
+            
+            const jsonString = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `mc-server-data-${new Date().toISOString().slice(0, 10)}.json`;
+            link.click();
+            
+            showNotification('数据已导出为JSON文件', 'success');
+        }
+
+        // 导出数据为CSV
+        function exportDataToCSV() {
+            if (historyData.length === 0) {
+                showNotification('没有数据可导出', 'warning');
+                return;
+            }
+            
+            const headers = ['时间', '在线人数', '延迟(ms)'];
+            const rows = historyData.map(item => [
+                item.time,
+                item.count,
+                item.ping || 'N/A'
+            ]);
+            
+            const csvContent = [
+                headers.join(','),
+                ...rows.map(row => row.join(','))
+            ].join('\n');
+            
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `mc-server-chart-data-${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
+            
+            showNotification('图表数据已导出为CSV文件', 'success');
+        }
+
+        // 开始监控
+        function startMonitoring() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+            
+            refreshInterval = setInterval(queryServerData, currentRefreshInterval);
+            isMonitoring = true;
+            pauseBtn.innerHTML = '<i class="fas fa-pause"></i> 暂停监控';
+            pauseBtn.classList.remove('btn-refresh');
+            pauseBtn.classList.add('btn-pause');
+        }
+
+        // 暂停/恢复监控
+        function toggleMonitoring() {
+            if (isMonitoring) {
+                clearInterval(refreshInterval);
+                isMonitoring = false;
+                pauseBtn.innerHTML = '<i class="fas fa-play"></i> 恢复监控';
+                pauseBtn.classList.remove('btn-pause');
+                pauseBtn.classList.add('btn-refresh');
+                showNotification('监控已暂停', 'info');
+            } else {
+                startMonitoring();
+                showNotification('监控已恢复', 'success');
+            }
+        }
+
+        // 更新刷新间隔
+        function updateRefreshInterval() {
+            currentRefreshInterval = parseInt(intervalSelector.value) * 1000;
+            
+            if (isMonitoring) {
+                startMonitoring();
+                showNotification(`刷新间隔已设置为${intervalSelector.value}秒`, 'info');
+            }
+        }
+
+        // 切换主题
+        function toggleTheme() {
+            if (isDarkMode) {
+                document.body.classList.add('light-mode');
+                themeToggle.innerHTML = '<i class="fas fa-sun"></i> 明亮模式';
+                settings.theme = 'light';
+            } else {
+                document.body.classList.remove('light-mode');
+                themeToggle.innerHTML = '<i class="fas fa-moon"></i> 暗黑模式';
+                settings.theme = 'dark';
+            }
+            
+            isDarkMode = !isDarkMode;
+            saveSettings();
+        }
+
+        // 初始化页面
+        function initPage() {
+            // 加载设置和历史记录
+            loadSettings();
+            loadHistory();
+            
+            // 初始化图表
+            initChart();
+            
+            // 首次查询服务器数据
+            queryServerData();
+            
+            // 开始定时监控
+            startMonitoring();
+            
+            // 更新运行时间
+            setInterval(updateUptime, 1000);
+            updateUptime();
+            
+            // 绑定事件监听器
+            refreshBtn.addEventListener('click', () => {
+                queryServerData();
+                showNotification('正在刷新服务器数据...', 'info');
+            });
+            
+            pauseBtn.addEventListener('click', toggleMonitoring);
+            
+            clearChartBtn.addEventListener('click', clearChartData);
+            
+            intervalSelector.addEventListener('change', updateRefreshInterval);
+            
+            themeToggle.addEventListener('click', toggleTheme);
+            
+            historyBtn.addEventListener('click', () => {
+                updateHistoryTable();
+                historyContainer.style.display = historyContainer.style.display === 'none' ? 'block' : 'none';
+            });
+            
+            clearHistoryBtn.addEventListener('click', clearHistory);
+            
+            exportHistoryBtn.addEventListener('click', exportHistoryToCSV);
+            
+            exportBtn.addEventListener('click', () => {
+                exportModal.style.display = 'flex';
+            });
+            
+            closeExport.addEventListener('click', () => {
+                exportModal.style.display = 'none';
+            });
+            
+            settingsBtn.addEventListener('click', () => {
+                settingsModal.style.display = 'flex';
+            });
+            
+            closeSettings.addEventListener('click', () => {
+                settingsModal.style.display = 'none';
+            });
+            
+            saveSettingsBtn.addEventListener('click', () => {
+                settings.notifyStatusChange = document.getElementById('notifyStatusChange').checked;
+                settings.notifyPlayerThreshold = document.getElementById('notifyPlayerThreshold').checked;
+                settings.playerThreshold = parseInt(document.getElementById('playerThreshold').value);
+                settings.chartDataPoints = parseInt(document.getElementById('chartDataPoints').value);
+                settings.autoClearHistory = document.getElementById('autoClearHistory').checked;
+                
+                saveSettings();
+                settingsModal.style.display = 'none';
+                
+                // 应用新的图表数据点设置
+                if (historyData.length > settings.chartDataPoints) {
+                    historyData = historyData.slice(-settings.chartDataPoints);
+                    updateChart();
+                }
+            });
+            
+            queryCustomServerBtn.addEventListener('click', () => {
+                const customServer = customServerInput.value.trim();
+                if (customServer) {
+                    queryServerData(customServer);
+                    showNotification(`正在查询服务器: ${customServer}`, 'info');
+                } else {
+                    showNotification('请输入服务器地址', 'warning');
+                }
+            });
+            
+            customServerInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    queryCustomServerBtn.click();
+                }
+            });
+            
+            // 导出功能按钮
+            document.getElementById('exportChartPNG').addEventListener('click', () => exportChart('png'));
+            document.getElementById('exportChartJPG').addEventListener('click', () => exportChart('jpeg'));
+            document.getElementById('exportDataJSON').addEventListener('click', exportDataToJSON);
+            document.getElementById('exportDataCSV').addEventListener('click', exportDataToCSV);
+            
+            // 点击模态框外部关闭
+            window.addEventListener('click', (e) => {
+                if (e.target === settingsModal) {
+                    settingsModal.style.display = 'none';
+                }
+                if (e.target === exportModal) {
+                    exportModal.style.display = 'none';
+                }
+            });
+            
+            // 添加键盘快捷键支持
+            document.addEventListener('keydown', (e) => {
+                // F5 刷新
+                if (e.key === 'F5') {
+                    e.preventDefault();
+                    queryServerData();
+                }
+                // Space 暂停/恢复
+                if (e.key === ' ' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'INPUT') {
+                    e.preventDefault();
+                    toggleMonitoring();
+                }
+                // Ctrl+H 显示/隐藏历史记录
+                if (e.ctrlKey && e.key === 'h') {
+                    e.preventDefault();
+                    historyBtn.click();
+                }
+                // Ctrl+S 打开设置
+                if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    settingsBtn.click();
+                }
+                // Ctrl+E 打开导出
+                if (e.ctrlKey && e.key === 'e') {
+                    e.preventDefault();
+                    exportBtn.click();
+                }
+            });
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('DOMContentLoaded', initPage);
+        
+        // 页面可见性变化时处理
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                // 页面隐藏时暂停监控以节省资源
+                if (isMonitoring) {
+                    clearInterval(refreshInterval);
+                }
+            } else {
+                // 页面显示时恢复监控
+                if (isMonitoring) {
+                    startMonitoring();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
