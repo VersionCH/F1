@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MC服务器实时监控面板</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.8/chart.umd.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/axios/1.6.8/axios.min.js"></script>
+    <style>
+        * {margin: 0;padding: 0;box-sizing: border-box;}
+        body {padding: 20px;font-family: "Microsoft YaHei", Arial, sans-serif;background: #1a1a2e;color: #e0e0e0;}
+        .container {max-width: 1200px;margin: 0 auto;}
+        .server-info {background: #16213e;padding: 20px;border-radius: 12px;margin-bottom: 20px;box-shadow: 0 4px 12px rgba(0,0,0,0.3);}
+        .info-title {font-weight: bold;color: #4cc9f0;font-size: 22px;margin-bottom: 15px;border-bottom: 1px solid #4cc9f0;padding-bottom: 8px;}
+        .info-grid {display: grid;grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));gap: 12px;margin-bottom: 15px;}
+        .info-item {font-size: 15px;}
+        .info-label {color: #f72585;font-weight: 600;margin-right: 6px;}
+        .player-list {background: #16213e;padding: 20px;border-radius: 12px;margin-bottom: 20px;box-shadow: 0 4px 12px rgba(0,0,0,0.3);}
+        .player-title {color: #4cc9f0;font-size: 18px;margin-bottom: 10px;}
+        .player-item {padding: 8px 12px;background: #242b42;border-radius: 6px;margin: 6px 0;}
+        .no-player {color: #9ca3af;font-style: italic;}
+        .chart-box {width: 100%;height: 400px;background: #16213e;padding: 20px;border-radius: 12px;box-shadow: 0 4px 12px rgba(0,0,0,0.3);}
+        .ping-box {display: inline-block;padding: 4px 10px;border-radius: 20px;background: #4361ee;color: white;margin-left: 10px;font-size: 12px;}
+        .refresh-tip {font-size: 12px;color: #9ca3af;margin-top: 8px;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="server-info">
+            <h3 class="info-title">Minecraft服务器基础信息</h3>
+            <div class="info-grid">
+                <p class="info-item"><span class="info-label">服务器地址：</span><span id="serverAddr">mc.xifyun.online</span></p>
+                <p class="info-item"><span class="info-label">服务器状态：</span><span id="serverStatus">查询中...</span><span id="pingDelay" class="ping-box"></span></p>
+                <p class="info-item"><span class="info-label">当前在线人数：</span><span id="onlineCount">--</span>/<span id="maxCount">--</span></p>
+                <p class="info-item"><span class="info-label">服务器版本：</span><span id="serverVersion">查询中...</span></p>
+                <p class="info-item"><span class="info-label">协议号：</span><span id="protocolNum">--</span></p>
+                <p class="info-item"><span class="info-label">运行平台：</span><span id="serverPlatform">--</span></p>
+            </div>
+            <p class="refresh-tip" id="refreshTip">当前刷新频率：实时查询（1秒/次）</p>
+        </div>
+
+        <div class="player-list">
+            <h3 class="player-title">在线玩家列表</h3>
+            <div id="playerContainer" class="no-player">暂无玩家在线 / 服务器离线</div>
+        </div>
+
+        <div class="chart-box">
+            <canvas id="onlineChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const serverAddr = "mc.xifyun.online";
+        const historyData = [];
+        let myChart;
+        let refreshTimer = null;
+        const NORMAL_INTERVAL = 1000;
+        const ERROR_INTERVAL = 30000;
+        const REQUEST_TIMEOUT = 3000;
+
+        // 初始化折线图
+        function initChart() {
+            const ctx = document.getElementById('onlineChart').getContext('2d');
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '服务器在线人数',
+                        data: [],
+                        borderColor: '#4cc9f0',
+                        backgroundColor: 'rgba(76, 201, 240, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#f72585',
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {title: {display: true, text: '查询时间', color: '#e0e0e0'},ticks: {color: '#c0c0c0'},grid: {color: 'rgba(255,25
