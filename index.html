@@ -3,82 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minecraft服务器监控</title>
+    <title>MC服务器在线人数监控</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
-        body { background: #1E90FF; color: #fff; font-family: Arial, sans-serif; padding: 20px; }
-        .server-card { background: #0066CC; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        .player-list { background: #0052A3; padding: 15px; border-radius: 8px; }
-        .status-online { color: #00FF00; }
-        .status-offline { color: #FF0000; }
+        * {margin: 0;padding: 0;box-sizing: border-box;}
+        body {padding: 20px;font-family: Arial, sans-serif;background-color: #f5f5f5;}
+        .server-info {background: #fff;padding: 15px;border-radius: 8px;margin-bottom: 20px;box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
+        .info-item {margin: 8px 0;font-size: 14px;color: #333;}
+        .info-title {font-weight: bold;color: #2c3e50;font-size: 18px;margin-bottom: 10px;}
+        .chart-box {width: 100%;max-width: 1200px;height: 400px;background: #fff;padding: 15px;border-radius: 8px;box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
     </style>
 </head>
 <body>
-    <div class="server-card">
-        <h2>Minecraft服务器基础信息</h2>
-        <p>服务器地址：<span id="server-ip">mc.xfyun.online</span></p>
-        <p>服务器状态：<span id="server-status" class="status-offline">查询中...</span></p>
-        <p>在线人数：<span id="player-count">--/--</span></p>
-        <p>版本信息：<span id="server-version">查询中...</span></p>
-        <p>延迟：<span id="server-ping">--ms</span></p>
+    <div class="server-info">
+        <h3 class="info-title">云汐>yu
+        <p class="info-item">服务器地址：<span id="serverAddr">mc.xifyun.online</span></p>
+        <p class="info-item">服务器状态：<span id="serverStatus">查询中...</span></p>
+        <p class="info-item">当前在线人数：<span id="onlineCount">--</span>/<span id="maxCount">--</span></p>
+        <p class="info-item">服务器版本：<span id="serverVersion">查询中...</span></p>
+        <p class="info-item">协议号：<span id="protocolNum">--</span></p>
+        <p class="info-item">运行平台：<span id="serverPlatform">--</span></p>
     </div>
-    <div class="player-list">
-        <h3>在线玩家列表</h3>
-        <p id="player-list">暂无玩家在线/服务器离线</p>
+    <div class="chart-box">
+        <canvas id="onlineChart"></canvas>
     </div>
 
     <script>
-        // 服务器地址（替换为你的MC服务器地址）
-        const SERVER_IP = "mc.xfyun.online";
-        // 公开查询接口（无跨域限制）
-        const API_URL = `https://api.mcsrvstat.us/2/${SERVER_IP}`;
+        const serverAddr = "mc.xifyun.online";
+        const historyData = [];
+        let myChart;
 
-        // 初始化查询
-        fetchServerStatus();
-
-        // 定时刷新（每30秒更新一次）
-        setInterval(fetchServerStatus, 30000);
-
-        async function fetchServerStatus() {
-            try {
-                const response = await fetch(API_URL);
-                const data = await response.json();
-
-                // 更新服务器状态
-                const statusEl = document.getElementById("server-status");
-                if (data.online) {
-                    statusEl.className = "status-online";
-                    statusEl.textContent = "在线";
-                } else {
-                    statusEl.className = "status-offline";
-                    statusEl.textContent = "离线";
+        // 初始化折线图
+        function initChart() {
+            const ctx = document.getElementById('onlineChart').getContext('2d');
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '服务器在线人数',
+                        data: [],
+                        borderColor: '#9b59b6',
+                        backgroundColor: 'rgba(155, 89, 182, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.2,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {title: {display: true, text: '查询时间'}},
+                        y: {title: {display: true, text: '在线人数'}, beginAtZero: true, ticks: {stepSize: 1}}
+                    },
+                    plugins: {title: {display: true, text: 'mc.xifyun.online 在线人数变化趋势', font: {size:16}}}
                 }
-
-                // 更新在线人数
-                document.getElementById("player-count").textContent = 
-                    data.players ? `${data.players.online}/${data.players.max}` : "--/--";
-
-                // 更新版本
-                document.getElementById("server-version").textContent = 
-                    data.version || "未知版本";
-
-                // 更新延迟
-                document.getElementById("server-ping").textContent = 
-                    data.ping ? `${data.ping}ms` : "--ms";
-
-                // 更新玩家列表
-                const playerListEl = document.getElementById("player-list");
-                if (data.players && data.players.online > 0 && data.players.list) {
-                    playerListEl.textContent = data.players.list.join(", ");
-                } else {
-                    playerListEl.textContent = "暂无玩家在线/服务器离线";
-                }
-
-            } catch (error) {
-                console.error("查询失败：", error);
-                document.getElementById("server-status").textContent = "查询失败";
-                document.getElementById("player-count").textContent = "--/--";
-            }
+            });
         }
-    </script>
-</body>
-</html>
+
+        // 调用适配minecraft-server-status的查询接口（支持SRV解析+新版MC协议）
+        async function queryServerData() {
+            try {
+                // 使用兼容SRV解析的MC查询接口，与目标网站底层逻辑一致
+                const apiUrl = `https://api.minetools.eu/ping/${serverAddr}/25565`;
+                const response = await axios.get(apiUrl);
+                const data = response.data;
+
+                if (data.error) throw new Error(data.error);
+
+                // 解析服务器核心信息（与目标网站展示一致）
+                const status = data.description ? '运行中' : '已离线';
+                const online = data.players ? data.players.online : 0;
+                const max = data.players ? data.players.max : 0;
+                const version = data.version ? data.version.name : '未知版本';
+                const protocol = data.version ? data.version.protocol : '--';
+                const platform = 'Java'; // 该服务器为Java版，固定标识
+
+                // 更新页面信息
+                document.getElementById('serverStatus').textContent = status;
+                document.getElementById('onlineCount').textContent = online;
+                document.getElementById('maxCount').textContent = max;
+                document.getElementById('serverVersion').textContent = version;
+                document.getElementById('protocolNum').textContent = protocol;
+                document.getElementById('serverPlatform').textContent = platform;
+
+                // 记录时间与在线人数
+                const now = new Date().toLocaleTimeString();
+                historyData.push({time: now, count: online});
+                if (historyData.length > 20) historyData.shift();
+                updateChart();
